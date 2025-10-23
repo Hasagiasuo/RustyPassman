@@ -34,8 +34,7 @@ pub fn read_key() -> Vec<u8> {
 }
 
 pub fn get_nonce() -> Vec<u8> {
-    let data = read_to_string("/Users/dmitro/Data/rust/RustyPassman/.config/nonce")
-        .expect("Cannot read nonce from file");
+    let data = read_to_string("./.config/nonce").expect("Cannot read nonce from file");
     decode(data).expect("Cannot decode nonce from file")
 }
 
@@ -45,7 +44,7 @@ pub fn gen_nonce() {
         .create(true)
         .write(true)
         .read(true)
-        .open("/Users/dmitro/Data/rust/RustyPassman/.config/nonce")
+        .open("./.config/nonce")
         .expect("Cannot open file nonce");
     let mut file_value = "".to_string();
     file.read_to_string(&mut file_value)
