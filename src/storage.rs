@@ -1,6 +1,6 @@
 use super::crypto;
 use super::entry::PasswordEntry;
-use std::io::{Read, Write};
+use std::io::Read;
 
 pub struct Vault {
     pub path: String,
@@ -10,7 +10,7 @@ pub struct Vault {
 
 impl Vault {
     pub fn upload() -> Self {
-        let path_to_file = std::env::var("path").expect("Cannot get var path from .env");
+        let path_to_file = std::env::var("storage").expect("Cannot get var path from .env");
         let nonce = crypto::get_nonce();
         let mut file = std::fs::OpenOptions::new()
             .create(true)

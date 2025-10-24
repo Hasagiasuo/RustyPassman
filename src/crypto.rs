@@ -5,10 +5,30 @@ use rand_core::OsRng;
 use std::fs::{OpenOptions, read_to_string};
 use std::io::{Read, Write};
 
-pub fn hashing_password(password: &str) -> String {
-    let salt = SaltString::generate(OsRng);
-    let argon = Argon2::default();
+fn get_salt() -> SaltString {
+    let path_to_salt = std::env::var("salt").expect("Cannot get salt path");
+    let salt: SaltString;
+    if std::fs::exists(&path_to_salt).expect("Cannot get information about file existsing") {
+        let salt_data = read_to_string(path_to_salt).expect("Cannot read salt from file");
+        salt = SaltString::from_b64(salt_data.as_str())
+            .expect("Cannot parse SaltString from string in salt file");
+    } else {
+        salt = SaltString::generate(OsRng);
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .read(true)
+            .open(&path_to_salt)
+            .expect("Cannot open file with sault");
+        file.write(salt.to_string().as_bytes())
+            .expect("Cannot write sault in file");
+    }
+    salt
+}
 
+pub fn hashing_password(password: &str) -> String {
+    let salt = get_salt();
+    let argon = Argon2::default();
     argon
         .hash_password(password.as_bytes(), &salt)
         .expect("Cannot hash password")
@@ -25,26 +45,34 @@ pub fn compare_password(current_password: &str, old_password: &str) -> bool {
 }
 
 pub fn read_key() -> Vec<u8> {
-    let pass_path = std::env::var("pass_path").expect("Cannot get var about password path");
-    read_to_string(pass_path.clone())
+    let pass_path = std::env::var("key").expect("Cannot get var about password path");
+    let password = read_to_string(pass_path.clone())
         .expect("Cannot read password")
         .trim()
-        .as_bytes()
-        .to_vec()
+        .to_string();
+    let salt = get_salt();
+    let mut key = [0u8; 32];
+    Argon2::default()
+        .hash_password_into(password.as_bytes(), salt.to_string().as_bytes(), &mut key)
+        .expect("Failed to derive key");
+
+    key.to_vec()
 }
 
 pub fn get_nonce() -> Vec<u8> {
-    let data = read_to_string("./.config/nonce").expect("Cannot read nonce from file");
+    let nonce_path = std::env::var("nonce").expect("Cannot get path to nonce");
+    let data = read_to_string(nonce_path).expect("Cannot read nonce from file");
     decode(data).expect("Cannot decode nonce from file")
 }
 
 pub fn gen_nonce() {
+    let nonce_path = std::env::var("nonce").expect("Cannot get path to nonce");
     let nonce = Aes256Gcm::generate_nonce(&mut OsRng).to_vec();
     let mut file = OpenOptions::new()
         .create(true)
         .write(true)
         .read(true)
-        .open("./.config/nonce")
+        .open(nonce_path)
         .expect("Cannot open file nonce");
     let mut file_value = "".to_string();
     file.read_to_string(&mut file_value)
