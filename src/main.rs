@@ -29,6 +29,10 @@ fn main() {
     }
     match args[1].as_str() {
         "list" => {
+            if vault.entries.len() == 0 {
+                println!("There is no service");
+                return;
+            }
             println!("All services:");
             for serv in &vault.entries {
                 println!("\t> {}", serv.service);
