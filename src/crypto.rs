@@ -1,7 +1,7 @@
 use aes_gcm::{AeadCore, Aes256Gcm, KeyInit, aead::Aead};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier, password_hash::SaltString};
 use base64::{decode, encode};
-use rand_core::OsRng;
+use rand_core::{OsRng, RngCore};
 use std::fs::{OpenOptions, read_to_string};
 use std::io::{Read, Write};
 
@@ -45,24 +45,45 @@ pub fn compare_password(current_password: &str, old_password: &str) -> bool {
 }
 
 pub fn read_key() -> Vec<u8> {
-    let pass_path = std::env::var("key").expect("Cannot get var about password path");
-    let password = read_to_string(pass_path.clone())
-        .expect("Cannot read password")
-        .trim()
-        .to_string();
-    let salt = get_salt();
-    let mut key = [0u8; 32];
-    Argon2::default()
-        .hash_password_into(password.as_bytes(), salt.to_string().as_bytes(), &mut key)
-        .expect("Failed to derive key");
-
-    key.to_vec()
+    let key_path = std::env::var("key").expect("Cannot get path to key");
+    let mut file = OpenOptions::new()
+        .read(true)
+        .open(key_path)
+        .expect("Cannot open key file");
+    let mut key = Vec::new();
+    file.read_to_end(&mut key).expect("Cannot read key file");
+    if key.len() != 32 {
+        panic!(
+            "Key length is invalid: expected 32 bytes, got {}",
+            key.len()
+        );
+    }
+    key
 }
 
 pub fn get_nonce() -> Vec<u8> {
     let nonce_path = std::env::var("nonce").expect("Cannot get path to nonce");
     let data = read_to_string(nonce_path).expect("Cannot read nonce from file");
     decode(data).expect("Cannot decode nonce from file")
+}
+
+pub fn gen_key() {
+    if !std::fs::exists(".config").expect("Cannot get information about exists folder .config") {
+        std::fs::create_dir(".config").expect("Cannot create directory");
+    }
+    let mut buffer = [0u8; 32];
+    OsRng.fill_bytes(&mut buffer);
+    let key_path = std::env::var("key").expect("Cannot get path to key");
+    if std::fs::exists(&key_path).expect("Cannot get information about exists file key") {
+        return;
+    }
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .read(true)
+        .open(key_path)
+        .expect("Cannot open key file");
+    file.write(&buffer).expect("Cannot write file");
 }
 
 pub fn gen_nonce() {

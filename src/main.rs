@@ -9,6 +9,7 @@ mod storage;
 
 fn main() {
     dotenv().expect("Cannot load .env space");
+    crypto::gen_key();
     crypto::gen_nonce();
     let mut vault = Vault::upload();
     let args: Vec<String> = env::args().collect();
